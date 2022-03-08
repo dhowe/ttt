@@ -8,6 +8,13 @@ let maxGenerations = 1000;
 let idgen = 0, numGames = 0;
 
 (function main() {
+  // let total = 3**9;
+  // for (let i = 0; i < total; i++) {
+  //   let 
+  // }
+
+
+  // test
   if (0) {
     //initPop();
     //play(...initPop().slice(0, 2), true);
@@ -25,14 +32,18 @@ let idgen = 0, numGames = 0;
     }
     return;
   }
-  let gen = 0, matrix, population = initPop();
-  while (++gen <= maxGenerations) {
-    matrix = playAll(population);
-    let done = assessFitness(population, matrix, gen);
-    if (done || gen === maxGenerations) break;
-    evolve(population);
+
+  // run it
+  if (1) {
+    let gen = 0, matrix, population = initPop();
+    while (++gen <= maxGenerations) {
+      matrix = playAll(population);
+      let done = assessFitness(population, matrix, gen);
+      if (done || gen === maxGenerations) break;
+      evolve(population);
+    }
+    logResult(population, gen, 'best.js');
   }
-  logResult(population, gen, 'best.js');
 })();
 
 
@@ -172,9 +183,9 @@ function assessFitness(pop, matrix, gen) {
   //let classes = pop.map((q,i) => q.losses === losses[i]).length;
   let numGames = ((popsize - 1) * 2);
   pop.forEach((p, i) => {
-    //let fitness = (numGames - losses[i]) / numGames;
-    let numWithSameRecord = pop.filter(q => q.losses === losses[i]).length;
-    let fitness = (1 - losses[i] / numGames) * (1 / numWithSameRecord);
+    let fitness = (numGames - losses[i]) / numGames;
+    // let numWithSameRecord = pop.filter(q => q.losses === losses[i]).length;
+    // let fitness = (1 - losses[i] / numGames) * (1 / numWithSameRecord);
     p.fitness = fitness;
     p.wins = wins[i];
     p.draws = draws[i];

@@ -10,33 +10,21 @@ let idgen = 0, numGames = 0;
 (function main() {
 
   let total = 3 ** 9, states = [], baseCases = {};
-  let wins = 0, invalids = 0, ok = 0, draws = 0, collisions = 0;
   for (let i = 0; i < total; i++) states[i] = [];
-
-  // NEXT: do we include draws? why 779
 
   let unique = new Set();
   for (let i = 0; i < states.length; i++) {
     let state3str = decToBase(i);
 
-    //console.log(i,state3str);
     let numXs = state3str.split('1').length - 1;
     let numOs = state3str.split('2').length - 1;
     let diff = numXs - numOs;
-    if (diff < 0 || diff > 1) { // illegal states
-      invalids++;
-      continue;
-    }
+    if (diff < 0 || diff > 1) continue; // illegal mark count
 
     let winners = getWinners(state3str);
-    
     if (winners.length > 1) continue; // two winners
     if (winners[0] === '2' && numXs > numOs) continue; // O wins, then X moves
     if (winners[0] === '1' && numXs === numOs) continue; // X wins, then O moves
-    
-    if (winners.length ===0 && numXs===5 && numOs === 4) {
-      draws++;
-    }
 
     // create a hash as key for each base case set
     let caseStrArr = perms(state3str).sort();
@@ -46,11 +34,12 @@ let idgen = 0, numGames = 0;
     unique.clear();
     caseStrArr.forEach(p => unique.add(p));
 
-    if (baseCases.hasOwnProperty(hash)) collisions++;
+    // hash => array of unique states
     baseCases[hash] = Array.from(unique);
   }
-  console.log(Object.keys(baseCases).length,'\n');
-  Object.entries(baseCases).slice().forEach(([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
+  console.log(Object.keys(baseCases).length, '\n');
+  Object.entries(baseCases).slice(0, 5).forEach(
+    ([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
 })()
 
 function runGA() {
@@ -391,29 +380,29 @@ function getWinners(s) {
   //console.log(s[0]);
   // X's
   let xWins = false;
-  if (s[0]==='1' && s[0] == s[1] && s[1] == s[2]) xWins = true;
-  else if (s[3]==='1' && s[3] == s[4] && s[4] == s[5]) xWins = true;
-  else if (s[6]==='1' && s[6] == s[7] && s[7] == s[8]) xWins = true;
+  if (s[0] === '1' && s[0] == s[1] && s[1] == s[2]) xWins = true;
+  else if (s[3] === '1' && s[3] == s[4] && s[4] == s[5]) xWins = true;
+  else if (s[6] === '1' && s[6] == s[7] && s[7] == s[8]) xWins = true;
 
-  else if (s[0]==='1' && s[0] == s[3] && s[0] == s[6]) xWins = true;
-  else if (s[1]==='1' && s[1] == s[4] && s[1] == s[7]) xWins = true;
-  else if (s[2]==='1' && s[2] == s[5] && s[2] == s[8]) xWins = true;
+  else if (s[0] === '1' && s[0] == s[3] && s[0] == s[6]) xWins = true;
+  else if (s[1] === '1' && s[1] == s[4] && s[1] == s[7]) xWins = true;
+  else if (s[2] === '1' && s[2] == s[5] && s[2] == s[8]) xWins = true;
 
-  else if (s[0]==='1' && s[0] == s[4] && s[4] == s[8]) xWins = true;
-  else if (s[2]==='1' && s[2] == s[4] && s[4] == s[6]) xWins = true;
+  else if (s[0] === '1' && s[0] == s[4] && s[4] == s[8]) xWins = true;
+  else if (s[2] === '1' && s[2] == s[4] && s[4] == s[6]) xWins = true;
 
   // O's
   let oWins = false;
-  if (s[0]==='2' && s[0] == s[1] && s[1] == s[2]) oWins = true;
-  else if (s[3]==='2' && s[3] == s[4] && s[4] == s[5]) oWins = true;
-  else if (s[6]==='2' && s[6] == s[7] && s[7] == s[8]) oWins = true;
+  if (s[0] === '2' && s[0] == s[1] && s[1] == s[2]) oWins = true;
+  else if (s[3] === '2' && s[3] == s[4] && s[4] == s[5]) oWins = true;
+  else if (s[6] === '2' && s[6] == s[7] && s[7] == s[8]) oWins = true;
 
-  else if (s[0]==='2' && s[0] == s[3] && s[0] == s[6]) oWins = true;
-  else if (s[1]==='2' && s[1] == s[4] && s[1] == s[7]) oWins = true;
-  else if (s[2]==='2' && s[2] == s[5] && s[2] == s[8]) oWins = true;
+  else if (s[0] === '2' && s[0] == s[3] && s[0] == s[6]) oWins = true;
+  else if (s[1] === '2' && s[1] == s[4] && s[1] == s[7]) oWins = true;
+  else if (s[2] === '2' && s[2] == s[5] && s[2] == s[8]) oWins = true;
 
-  else if (s[0]==='2' && s[0] == s[4] && s[4] == s[8]) oWins = true;
-  else if (s[2]==='2' && s[2] == s[4] && s[4] == s[6]) oWins = true;
+  else if (s[0] === '2' && s[0] == s[4] && s[4] == s[8]) oWins = true;
+  else if (s[2] === '2' && s[2] == s[4] && s[4] == s[6]) oWins = true;
 
   let result = [];
   if (xWins) result.push('1');

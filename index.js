@@ -6,73 +6,85 @@ let pReplicate = 0.10
 let pCrossover = 0.15;
 let maxGenerations = 1000;
 let idgen = 0, numGames = 0;
-let stateLookup = {}; // index into geneTemplate for each state
-let geneTemplate = []; // one from each set (with lowest sort value)
+//let stateLookup = {}; // index into geneTemplate for each state
+// // one from each set (with lowest sort value)
 let baseCaseTransforms = ['', 'frr', 'fr', 'rrr', 'r', 'frrr', 'f', 'rr'];
+let stateToBaseCaseSet = {};
 
 (function main() { // TODO: need to play game on BASE board
-  let stateToBaseCaseSet = {};
-  let baseCaseArr = parseUniqueCases();
-  console.log(baseCaseArr.length);
-  baseCaseArr.slice(0, 5).forEach((a, i) => console.log(a));
-  return;
-  Object.entries(stateLookup).slice(0, 5).forEach
-    (([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
-  return;
-  Object.values().forEach((bcSet, idx) => {
-    let baseCaseSetWithIndex = { set: bcSet, index: idx };
-    bcSet.forEach(state => stateToBaseCaseSet[state] = baseCaseSetWithIndex);
+
+  let geneTemplate = [];
+  let baseCaseArray = parseUniqueCases();
+
+  baseCaseArray.forEach((baseCaseSet, geneIndex) => {
+    let baseCaseSetWithIndex = { baseCaseSet, geneIndex };
+    baseCaseSet.forEach(state => stateToBaseCaseSet[state] = baseCaseSetWithIndex);
+    geneTemplate[geneIndex] = baseCaseSet[0];
   });
 
-  Object.entries(stateToBaseCaseSet).slice(0, 5).forEach
-    (([a, b], i) => console.log(a + '\n  -> ' + JSON.stringify(b) + '\n'));
+  console.log(Object.entries(stateToBaseCaseSet).length + ' total states');
+  console.log(geneTemplate.length + ' genes in template');
+  // Object.entries(stateToBaseCaseSet).slice(0, 5).forEach
+  //   (([a, b], i) => console.log(a + '\n  -> ' + JSON.stringify(b) + '\n'));
+  //let population = initPop();
+  let population = [];
+  console.log(`Initializing ${popsize} individuals,`
+    + ` ${geneTemplate.length} genes each`);
+  for (let j = 0; j < popsize; j++) {
+    let genes = new Array(geneTemplate.length); // 3^9=~19k
+    for (let i = 0; i < genes.length; i++) {
+      genes[i] = randomMove(geneTemplate[i]);
+    }
+    population.push({ genes, fitness: 0, id: ++idgen });
+  }
+  //console.log(population.slice(0,5));
+  console.log(play(...population.slice(0, 2), 1));
 })();
 
-function sumWeights(symbol, caseStr) {
-  let total = 0;
-  for (let i = 0; i < caseStr.length; i++) {
-    if (caseStr[i] === symbol) total += (i + 1);
+function differingIndexes(a, b) {
+  //console.log('differingIndexes', a, b);
+  let diffs = [];
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) diffs.push(i);
   }
-  return total;
+  return diffs;
 }
-
-function prodWeights(symbol, caseStr) {
-  let total = 0;
-  for (let i = 0; i < caseStr.length; i++) {
-    if (caseStr[i] === symbol) total *= (i + 1);
-  }
-  return total;
-}
-
-function play(a, b, dbug) {
-  console.log(a.id, b.id, dbug);
-  a.mark = 'X';
-  b.mark = 'O';
-  let game = new TicTacToe();
-  let winMove, i, player = a;
-  for (i = 0; i < 9; i++) {
-    winMove = move(game, player, dbug);
-    if (winMove) {
-      let winner = winMove;
-      if (!winMove.draw) {
-        winner = winMove.mark === a.mark ? a : b;
-      }
-      return winner;
-    }
-    player = (player === a) ? b : a;
-  }
-  game.render(1);
-  throw Error('invalid state:' + game);
-}
-
 function move(game, player, dbug) {
+
   let state = game.state.join("");
-  let geneIndex = stateLookup[state];
-  //let arrIndex = baseToDec(state);
-  let next = player.genes[geneIndex];
-  //let mark = game.values[game.turn];
-  dbug && console.log((geneIndex ? '' : '\n') + player.mark
-    + " moves to " + next + ' ' + (!game.state[next] ? '' : '[illegal]'));
+  let { baseCaseSet, geneIndex } = stateToBaseCaseSet[state];
+  console.log((geneIndex?'':'\n')+'state: '+state);
+
+  let stateIndex = baseCaseSet.indexOf(state);
+  
+  let onBaseCase = stateIndex === 0;
+  // make move on base-case state
+  let baseCaseMove = player.genes[geneIndex];
+  //baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
+  //let updateBaseCaseState = baseCaseArr.join('');
+
+  let next;
+  if (onBaseCase) {
+    next = baseCaseMove;
+  }
+  else {
+
+    // make move on base-case state
+    let baseCaseArr = baseCaseSet[0].split('');
+    baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
+    let updatedBaseCaseState = baseCaseArr.join('');
+
+    let nextRealState = transformBaseCase(updatedBaseCaseState, baseCaseTransforms[stateIndex]);
+    let diffIdx = differingIndexes(state, nextRealState);
+
+    // *** WORKING HERE ******
+    if (diffIdx.length !== 1) throw Error('invalid state: '+state+' !=(-1) '+nextRealState);
+    
+    next = diffIdx[0];
+  }
+
+  dbug && console.log((geneIndex ? '' : '') + player.mark
+    + " moves to " +next+' '+(!game.state[next] ? '' : '[illegal]'));
 
   let winner = game.update(next);
   //if (winner) console.log('Winner:', winner);
@@ -80,28 +92,8 @@ function move(game, player, dbug) {
   return winner;
 }
 
-function runGA() {
-  let gen = 0, matrix, population = initPop();
-  while (++gen <= maxGenerations) {
-    matrix = playAll(population);
-    let done = assessFitness(population, matrix, gen);
-    if (done || gen === maxGenerations) break;
-    evolve(population);
-  }
-  logResult(population, gen, 'best.js');
-};
+function initPop(baseCaseArray) {
 
-function initPop() {
-
-  // create gene template from unique cases
-  let uniqueCaseSets = parseUniqueCases();
-  //console.log(uniqueCaseSets.length, 'unique cases\n');
-  for (let i = 0; i < uniqueCaseSets.length; i++) {
-    let caseSet = uniqueCaseSets[i];
-    geneTemplate[i] = caseSet[0]; // canonical baseCase via sort
-    caseSet.forEach((c) => stateLookup[c] = i);
-  }
-  //console.log(geneTemplate.slice(0,10), '\n');
 
   // initialize population with gene template
   let population = [];
@@ -125,10 +117,94 @@ function randomMove(state3) {
   return open.length ? rand(open) : -1;
 }
 
+function sumWeights(symbol, caseStr) {
+  let total = 0;
+  for (let i = 0; i < caseStr.length; i++) {
+    if (caseStr[i] === symbol) total += (i + 1);
+  }
+  return total;
+}
 
+function prodWeights(symbol, caseStr) {
+  let total = 0;
+  for (let i = 0; i < caseStr.length; i++) {
+    if (caseStr[i] === symbol) total *= (i + 1);
+  }
+  return total;
+}
+
+function play(a, b, dbug) {
+  //console.log(a.id, b.id, dbug);
+  a.mark = 'X';
+  b.mark = 'O';
+  let game = new TicTacToe();
+  let winMove, i, player = a;
+  for (i = 0; i < 9; i++) {
+    winMove = move(game, player, dbug);
+    if (winMove) {
+      let winner = winMove;
+      if (!winMove.draw) {
+        winner = winMove.mark === a.mark ? a : b;
+      }
+      return winner;
+    }
+    player = (player === a) ? b : a;
+  }
+  game.render(1);
+  throw Error('invalid state:' + game);
+}
+
+function runGA() {
+  let gen = 0, matrix, population = initPop();
+  while (++gen <= maxGenerations) {
+    matrix = playAll(population);
+    let done = assessFitness(population, matrix, gen);
+    if (done || gen === maxGenerations) break;
+    evolve(population);
+  }
+  logResult(population, gen, 'best.js');
+};
+
+
+function parseUniqueCases() {
+
+  let total = 3 ** 9, states = [], baseCases = {};
+  for (let i = 0; i < total; i++) states[i] = [];
+
+  let unique = new Set();
+  for (let i = 0; i < states.length; i++) {
+    let state3str = decToBase(i);
+
+    let numXs = state3str.split('1').length - 1;
+    let numOs = state3str.split('2').length - 1;
+    let diff = numXs - numOs;
+    if (diff < 0 || diff > 1) continue; // illegal mark count
+
+    let winners = getWinners(state3str);
+    if (winners.length > 1) continue; // two winners
+    if (winners[0] === '2' && numXs > numOs) continue; // O wins, then X moves
+    if (winners[0] === '1' && numXs === numOs) continue; // X wins, then O moves
+
+    // create a hash as key for each base case set
+    let caseStrArr = perms(state3str).sort();
+    let hash = caseStrArr.join('-');
+
+    // eliminiate duplicates in list of states
+    unique.clear();
+    caseStrArr.forEach(p => unique.add(p));
+
+    // hash => array of unique states
+    baseCases[hash] = Array.from(unique);
+  }
+  console.log(Object.keys(baseCases).length, 'base cases');
+  //Object.entries(baseCases).slice(0, 5).forEach(
+  //([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
+
+  return Object.values(baseCases);
+}
 
 // returns a 765-element array with all unique cases for each base
-function parseUniqueCases() {
+function parseUniqueCasesBunk() {
   let total = 3 ** 9, baseCases = {};
   let unique = new Set();
   for (let i = 0; i < total; i++) {

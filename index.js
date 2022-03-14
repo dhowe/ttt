@@ -6,9 +6,10 @@ let pReplicate = 0.10
 let pCrossover = 0.15;
 let maxGenerations = 1000;
 let idgen = 0, numGames = 0;
-let baseCaseTransforms = ['', 'r', 'rr', 'rrr', 'f', 'fr', 'frr', 'frrr'];
 let stateToBaseCases = {};
 let baseCases = [];
+
+let baseCaseTransforms = ['', 'r', 'rr', 'rrr', 'f', 'fr', 'frr', 'frrr'];
 
 (function main() {
   runGA();
@@ -35,7 +36,7 @@ function initPop() {
   });
 
   console.log(Object.entries(stateToBaseCases).length + ' total states');
-  console.log(baseCases.length + ' genes in template');
+  console.log(baseCases.length + ' genes per individual');
   
   let population = [];
   console.log(`Initializing ${popsize} individuals,`
@@ -63,17 +64,12 @@ function move(game, player, dbug) {
 
   let state = game.state.join("");
   let { caseArray, geneIndex } = stateToBaseCases[state];
-
   let stateIndex = caseArray.indexOf(state);
-  // console.log('stateIndex: ' + stateIndex);
-  // console.log((geneIndex ? '' : '\n') + 'state: ' + state);
-
   let onBaseCase = stateIndex === 0;
+  
   // make move on base-case state
   let baseCaseMove = player.genes[geneIndex];
-  //baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
-  //let updateBaseCaseState = baseCaseArr.join('');
-
+  
   let next;
   if (onBaseCase) {
     next = baseCaseMove;
@@ -82,19 +78,12 @@ function move(game, player, dbug) {
 
     // make move on base-case state
     let baseCaseArr = caseArray[0].split('');
-    // console.log('base   ' + caseArray[0]);
-    // console.log('move   state[' + baseCaseMove + ']=' + (player.mark === 'X' ? '1' : '2'));
-
-    //console.log('GOT: '+baseCaseArr[baseCaseMove]);
     if (baseCaseArr[baseCaseMove] !== '0') throw Error('Illegal move to filled spac: '
       + baseCaseArr[baseCaseMove]);
 
     baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
     let updatedBaseCaseState = baseCaseArr.join('');
-    //console.log('->     ' + updatedBaseCaseState + ' base');
-
     let nextRealState = transformBaseCase(updatedBaseCaseState, baseCaseTransforms[stateIndex]);
-    //console.log(' real  ' + nextRealState, '\n');
 
     let diffIdx = differingIndexes(state, nextRealState);
     if (diffIdx.length !== 1) throw Error('invalid state: '
@@ -107,8 +96,8 @@ function move(game, player, dbug) {
     + " moves to " + next + ' ' + (game.state[next] === 0 ? '' : '[illegal]'));
 
   let winner = game.update(next);
-  //if (winner) console.log('Winner:', winner);
   game.render(dbug);
+
   return winner;
 }
 
@@ -220,16 +209,8 @@ function parseUniqueCases() {
     result.push({ caseArray: orderCases(b[0]), geneIndex: i });
   });
 
-  console.log(result.length, 'base cases');
-  //console.log(Object.keys(baseCases).length, 'base cases');
-
-  // Object.entries(baseCases).slice(0, 5).forEach(
-  //   ([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
-  // console.log(result.slice(0, 5));
-  // result.slice(0, 5).forEach((r, i) => {
-  //   console.log(i, r);
-  // });
-  return result;//Object.values(baseCases);
+  //console.log(result.length, 'base cases');
+  return result;
 }
 
 // returns a 765-element array with all unique cases for each base
@@ -258,11 +239,8 @@ function parseUniqueCasesBunk() {
     unique.clear();
     caseStrArr.forEach(p => unique.add(p));
 
-    //if (baseCases.hasOwnProperty(hash)) collisions++;
     baseCases[hash] = Array.from(unique);
   }
-
-  // console.log(Object.entries(baseCases).length+' entries');
 
   // Object.entries(baseCases).slice(0, 5).forEach
   //   (([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
@@ -334,11 +312,7 @@ function evolve(pop) {
     // mutate
     for (let i = 0; i < child.genes.length; i++) {
       if (child.genes[i] > -1 && rand() < pMutate) {
-        // -1 ?
-        let tmp = child.genes[i];
         child.genes[i] = randomMove(baseCases[i]); // ?
-
-        //console.log('mutate:',tmp,child.genes[i]);
       }
     }
 
@@ -404,8 +378,6 @@ function assessFitness(pop, matrix, gen) {
   let numGames = ((popsize - 1) * 2);
   pop.forEach((p, i) => {
     let fitness = (numGames - losses[i]) / numGames;
-    // let numWithSameRecord = pop.filter(q => q.losses === losses[i]).length;
-    // let fitness = (1 - losses[i] / numGames) * (1 / numWithSameRecord);
     p.fitness = fitness;
     p.wins = wins[i];
     p.draws = draws[i];
@@ -482,30 +454,6 @@ function logPop(pop, matrix, generation) {
   }
 }
 
-// function randomMove(state10) {
-//   let state3 = decToBase(state10).split('');
-//   let open = state3.reduce((s, c, i) => {
-//     if (c === '0') s.push(i);
-//     return s;
-//   }, []);
-//   return open.length ? rand(open) : -1;
-// }
-
-function initPopOld() {
-  let pop = [];
-  let geneLength = 3 ** 9;
-  console.log(`Initializing ${popsize} individuals,`
-    + ` ${geneLength} genes each`);
-  for (let j = 0; j < popsize; j++) {
-    let genes = new Array(geneLength); // 3^9=~19k
-    for (let i = 0; i < genes.length; i++) {
-      genes[i] = randomMove(i);
-    }
-    pop.push({ genes, fitness: 0, id: ++idgen });
-  }
-  return pop;
-}
-
 function tselect(pool) { // tournament selection
   let c1 = rand(pool), c2 = rand(pool);
   return c1.fitness > c2.fitness ? c1 : c2;
@@ -558,7 +506,6 @@ function flip(state3a) {
   return res.join('');
 }
 
-
 function perms(state3s) {
   let perms = [];
   let flipped = flip(state3s);
@@ -587,11 +534,7 @@ function baseCaseIndex(state3a) {
 }
 
 function getWinners(s) {
-  //console.log(s);
-  //if (typeof s === 'string') s = s.split();
-  //if (typeof s[0] === 'string') s = s.map(k => parseInt(k));
 
-  //console.log(s[0]);
   // X's
   let xWins = false;
   if (s[0] === '1' && s[0] == s[1] && s[1] == s[2]) xWins = true;
@@ -625,7 +568,7 @@ function getWinners(s) {
   return result;
 }
 
-function testTransform(players) {
+function testTransform(players) { // DBUGGING ONLY
   //console.log("100000000", rotate("100000000"));
   let tests = [
     {

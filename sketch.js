@@ -28,14 +28,53 @@ function mouseReleased() {
     }
     if (this.ai && !locked) {
       locked = true;
-      setTimeout(() => {
-        let state = game.state.join('');
-        let next = this.ai.genes[baseToDec(state)];
-        locked = game.update(next);
-        render(game);
-      }, 500);
+      setTimeout(nextMove, 500);
     }
   }
+}
+
+function nextMove() {
+  let next, state = game.state.join("");
+
+  let { transforms, stateToBaseMap } = game.baseCaseData;
+  let { caseArray, geneIndex } = stateToBaseMap[state];
+  let stateIndex = caseArray.indexOf(state);
+  let baseCase = caseArray[0];
+  let onBaseCase = stateIndex === 0;
+
+  // make move on base-case state
+  let baseCaseMove = this.ai.genes[geneIndex];
+  if (typeof baseCaseMove === 'undefined') throw Error("No gene for base case: " + baseCase);
+
+  // caseArray => allCases ?
+
+  if (onBaseCase) {
+    next = baseCaseMove;
+  }
+  else {
+    // make move on base-case state
+    let baseCaseArr = baseCase.split('');
+    if (baseCaseArr[baseCaseMove] !== '0') {
+      throw Error('Illegal move to filled spac: '+ baseCaseArr[baseCaseMove]);
+    }
+
+    baseCaseArr[baseCaseMove] = (this.ai.mark === 'X' ? '1' : '2');
+    let updatedBaseCaseState = baseCaseArr.join('');
+    let nextRealState = transformBaseCase(updatedBaseCaseState, transforms[stateIndex]);
+
+    let diffIdx = differingIndexes(state, nextRealState);
+    if (diffIdx.length !== 1) {
+      throw Error('invalid state: '+ state + ' !=(-1) ' + nextRealState);
+    }
+
+    next = diffIdx[0];
+  }
+  if (typeof next === 'undefined') {
+    throw Error('no next for: ' + state + ' base=' + baseCase);
+  }
+
+  locked = game.update(next);
+  render(game);
 }
 
 function render(game) {
@@ -78,4 +117,16 @@ function render(game) {
 
 function baseToDec(str, base = 3) {
   return parseInt(str, base);
+}
+
+function differingIndexes(original, updated) {
+  //console.log('differingIndexes', a, b);
+  if (!original) throw Error('No old state');
+  if (!updated) throw Error('No updated state');
+
+  let diffs = [];
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] !== updated[i]) diffs.push(i);
+  }
+  return diffs;
 }

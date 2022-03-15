@@ -6,39 +6,29 @@ let pReplicate = 0.10
 let pCrossover = 0.15;
 let maxGenerations = 1000;
 let idgen = 0, numGames = 0;
-let stateToBaseCases = {};
-let baseCases = [];
-
-let baseCaseTransforms = ['', 'r', 'rr', 'rrr', 'f', 'fr', 'frr', 'frrr'];
 
 (function main() {
-  runGA();
-})();
-
-function runGA() {
-  let gen = 0, matrix, population = initPop();
+  let game = new TicTacToe();
+  const ai = require('./best')
+  //console.log(ai);
+  let { baseCases, stateToBaseMap } = game.baseCaseData;
+  console.log(stateToBaseMap['002210100']);
+  console.log(ai.genes['002210100']);
+  //let gen = 0, matrix, population = initPop(game);
+  return;
   while (++gen <= maxGenerations) {
-    matrix = playAll(population);
+    matrix = playAll(population, game);
     let done = assessFitness(population, matrix, gen);
     if (done || gen === maxGenerations) break;
-    evolve(population);
+    evolve(population, game);
   }
   logResult(population, gen, 'best.js');
-};
+})();
 
-function initPop() {
+function initPop(game) {
 
-  let baseCaseArray = parseUniqueCases();
-  baseCaseArray.forEach(bca => {
-    let { caseArray, geneIndex } = bca;
-    caseArray.forEach(state => stateToBaseCases[state] = bca);
-    baseCases[geneIndex] = caseArray[0];
-  });
-
-  console.log(Object.entries(stateToBaseCases).length + ' total states');
-  console.log(baseCases.length + ' genes per individual');
-  
   let population = [];
+  let baseCases = game.baseCaseData.baseCases;
   console.log(`Initializing ${popsize} individuals,`
     + ` ${baseCases.length} genes each`);
   for (let j = 0; j < popsize; j++) {
@@ -63,13 +53,14 @@ function differingIndexes(a, b) {
 function move(game, player, dbug) {
 
   let state = game.state.join("");
-  let { caseArray, geneIndex } = stateToBaseCases[state];
+  let { transforms, stateToBaseMap } = game.baseCaseData;
+  let { caseArray, geneIndex } = stateToBaseMap[state];
   let stateIndex = caseArray.indexOf(state);
   let onBaseCase = stateIndex === 0;
-  
+
   // make move on base-case state
   let baseCaseMove = player.genes[geneIndex];
-  
+
   let next;
   if (onBaseCase) {
     next = baseCaseMove;
@@ -83,7 +74,7 @@ function move(game, player, dbug) {
 
     baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
     let updatedBaseCaseState = baseCaseArr.join('');
-    let nextRealState = transformBaseCase(updatedBaseCaseState, baseCaseTransforms[stateIndex]);
+    let nextRealState = transformBaseCase(updatedBaseCaseState, transforms[stateIndex]);
 
     let diffIdx = differingIndexes(state, nextRealState);
     if (diffIdx.length !== 1) throw Error('invalid state: '
@@ -99,21 +90,6 @@ function move(game, player, dbug) {
   game.render(dbug);
 
   return winner;
-}
-
-function initPopLessOld(baseCaseArray) {
-  // initialize population with gene template
-  let population = [];
-  console.log(`Initializing ${popsize} individuals,`
-    + ` ${baseCases.length} genes each`);
-  for (let j = 0; j < popsize; j++) {
-    let genes = new Array(baseCases.length); // 3^9=~19k
-    for (let i = 0; i < genes.length; i++) {
-      genes[i] = randomMove(baseCases[i]);
-    }
-    population.push({ genes, fitness: 0, id: ++idgen });
-  }
-  return population;
 }
 
 function randomMove(state3) {
@@ -140,11 +116,11 @@ function prodWeights(symbol, caseStr) {
   return total;
 }
 
-function play(a, b, dbug) {
+function play(game, a, b, dbug) {
   //console.log(a.id, b.id, dbug);
   a.mark = 'X';
   b.mark = 'O';
-  let game = new TicTacToe();
+  game.reset();
   let winMove, i, player = a;
   for (i = 0; i < 9; i++) {
     winMove = move(game, player, dbug);
@@ -157,108 +133,16 @@ function play(a, b, dbug) {
     }
     player = (player === a) ? b : a;
   }
-  game.render(1);
+  game.render(dbug);
   throw Error('invalid state:' + game);
-}
-
-function parseUniqueCases() {
-
-  let total = 3 ** 9, states = [], baseCases = {};
-  for (let i = 0; i < total; i++) states[i] = [];
-
-  let unique = new Set();
-  for (let i = 0; i < states.length; i++) {
-    let state3str = decToBase(i);
-
-    let numXs = state3str.split('1').length - 1;
-    let numOs = state3str.split('2').length - 1;
-    let diff = numXs - numOs;
-    if (diff < 0 || diff > 1) continue; // illegal mark count
-
-    let winners = getWinners(state3str);
-    if (winners.length > 1) continue; // two winners
-    if (winners[0] === '2' && numXs > numOs) continue; // O wins, then X moves
-    if (winners[0] === '1' && numXs === numOs) continue; // X wins, then O moves
-
-    // create a hash as key for each base case set
-    let permutations = perms(state3str);
-    let hash = permutations.slice().sort().join('-');
-
-    // eliminiate duplicates in list of states
-    //unique.clear();
-    //caseStrArr.forEach(p => unique.add(p));
-
-    // hash => array of unique states
-    // if (baseCases[hash]) console.log('exists: '+hash);
-    baseCases[hash] = permutations;//Array.from(unique);
-  }
-
-  function orderCases(base) {
-    return [base,
-      transformBaseCase(base, 'r'),
-      transformBaseCase(base, 'rr'),
-      transformBaseCase(base, 'rrr'),
-      transformBaseCase(base, 'f'),
-      transformBaseCase(base, 'fr'),
-      transformBaseCase(base, 'frr'),
-      transformBaseCase(base, 'frrr')]
-  }
-
-  let result = [];
-  Object.entries(baseCases).forEach(([a, b], i) => {
-    result.push({ caseArray: orderCases(b[0]), geneIndex: i });
-  });
-
-  //console.log(result.length, 'base cases');
-  return result;
-}
-
-// returns a 765-element array with all unique cases for each base
-function parseUniqueCasesBunk() {
-  let total = 3 ** 9, baseCases = {};
-  let unique = new Set();
-  for (let i = 0; i < total; i++) {
-    let state3str = decToBase(i);
-
-    //console.log(i,state3str);
-    let numXs = state3str.split('1').length - 1;
-    let numOs = state3str.split('2').length - 1;
-    let diff = numXs - numOs;
-    if (diff < 0 || diff > 1) continue; // illegal mark count
-
-    let winners = getWinners(state3str);
-    if (winners.length > 1) continue; // two winners
-    if (winners[0] === '2' && numXs > numOs) continue; // O wins, then X moves
-    if (winners[0] === '1' && numXs === numOs) continue; // X wins, then O moves
-
-    // create a hash as key for each base case set
-    let caseStrArr = perms(state3str);
-    let hash = caseStrArr.join('-');
-
-    // eliminiate duplicates in list of states
-    unique.clear();
-    caseStrArr.forEach(p => unique.add(p));
-
-    baseCases[hash] = Array.from(unique);
-  }
-
-  // Object.entries(baseCases).slice(0, 5).forEach
-  //   (([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
-
-  return Object.values(baseCases);
 }
 
 function transformBaseCase(state, txs) {
   let current = state;
   if (!txs.length) return state;
   for (let i = 0; i < txs.length; i++) {
-    let tx = txs[i];
-    if (tx === 'f') {
-      current = flip(current);
-    }
-    if (tx === 'r') {
-      current = rotate(current);
-    }
+    if (txs[i] === 'r') current = rotate(current);
+    else if (txs[i] === 'f') current = flip(current);
   }
   return current;
 }
@@ -276,7 +160,7 @@ function sortCases(a, b) {
   return aOs - bOs;
 }
 
-function evolve(pop) {
+function evolve(pop, game) {
   let lastGen = pop.slice(); // copy
   pop.length = 0; // clear 
 
@@ -312,7 +196,7 @@ function evolve(pop) {
     // mutate
     for (let i = 0; i < child.genes.length; i++) {
       if (child.genes[i] > -1 && rand() < pMutate) {
-        child.genes[i] = randomMove(baseCases[i]); // ?
+        child.genes[i] = randomMove(game.baseCaseData.baseCases[i]); // ? ok
       }
     }
 
@@ -320,12 +204,12 @@ function evolve(pop) {
   }
 }
 
-function playAll(pop, dbug) {
+function playAll(pop, game, dbug) {
   let winMatrix = [...Array(popsize)].map(() => [...Array(popsize)]);
   for (let j = 0, c = 0; j < popsize; j++) {
     for (let i = 0; i < popsize; i++) {
       if (i == j) continue;
-      let winner = play(pop[j], pop[i], dbug);
+      let winner = play(game, pop[j], pop[i], dbug);
       winMatrix[j][i] = winner.mark;
       numGames++;
       dbug && console.log((c++) + ")", j + '(X) vs ' + i + '(O) =>',
@@ -533,40 +417,7 @@ function baseCaseIndex(state3a) {
   return baseCaseIndexFromPerms(perms(state3a));
 }
 
-function getWinners(s) {
 
-  // X's
-  let xWins = false;
-  if (s[0] === '1' && s[0] == s[1] && s[1] == s[2]) xWins = true;
-  else if (s[3] === '1' && s[3] == s[4] && s[4] == s[5]) xWins = true;
-  else if (s[6] === '1' && s[6] == s[7] && s[7] == s[8]) xWins = true;
-
-  else if (s[0] === '1' && s[0] == s[3] && s[0] == s[6]) xWins = true;
-  else if (s[1] === '1' && s[1] == s[4] && s[1] == s[7]) xWins = true;
-  else if (s[2] === '1' && s[2] == s[5] && s[2] == s[8]) xWins = true;
-
-  else if (s[0] === '1' && s[0] == s[4] && s[4] == s[8]) xWins = true;
-  else if (s[2] === '1' && s[2] == s[4] && s[4] == s[6]) xWins = true;
-
-  // O's
-  let oWins = false;
-  if (s[0] === '2' && s[0] == s[1] && s[1] == s[2]) oWins = true;
-  else if (s[3] === '2' && s[3] == s[4] && s[4] == s[5]) oWins = true;
-  else if (s[6] === '2' && s[6] == s[7] && s[7] == s[8]) oWins = true;
-
-  else if (s[0] === '2' && s[0] == s[3] && s[0] == s[6]) oWins = true;
-  else if (s[1] === '2' && s[1] == s[4] && s[1] == s[7]) oWins = true;
-  else if (s[2] === '2' && s[2] == s[5] && s[2] == s[8]) oWins = true;
-
-  else if (s[0] === '2' && s[0] == s[4] && s[4] == s[8]) oWins = true;
-  else if (s[2] === '2' && s[2] == s[4] && s[4] == s[6]) oWins = true;
-
-  let result = [];
-  if (xWins) result.push('1');
-  if (oWins) result.push('2');
-
-  return result;
-}
 
 function testTransform(players) { // DBUGGING ONLY
   //console.log("100000000", rotate("100000000"));

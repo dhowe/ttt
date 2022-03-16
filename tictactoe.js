@@ -7,6 +7,56 @@ class TicTacToe {
     this.reset();
   }
 
+  reset() {
+    this.state = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    this._turn = 1; // 1 (X) or 2 (O)
+    this._winner = 0;
+  }
+
+  move(player, dbug) {
+
+    let state = this.state.join("");
+    let { transforms, stateToBaseMap } = this.baseCaseData;
+    let { caseArray, geneIndex } = stateToBaseMap[state];
+    let stateIndex = caseArray.indexOf(state);
+    let onBaseCase = stateIndex === 0;
+
+    // make move on base-case state
+    let baseCaseMove = player.genes[geneIndex];
+
+    let next;
+    if (onBaseCase) {
+      next = baseCaseMove;
+    }
+    else {
+
+      // make move on base-case state
+      let baseCaseArr = caseArray[0].split('');
+      if (baseCaseArr[baseCaseMove] !== '0') throw Error('Illegal move to filled spac: '
+        + baseCaseArr[baseCaseMove]);
+
+      baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
+      let updatedBaseCaseState = baseCaseArr.join('');
+      let nextRealState = transformBaseCase
+        (updatedBaseCaseState, transforms[stateIndex]);
+
+      let diffIdx = differingIndexes(state, nextRealState);
+      if (diffIdx.length !== 1) throw Error('invalid state: '
+        + state + ' !=(-1) ' + nextRealState);
+
+      next = diffIdx[0];
+    }
+    //dbug && console.log(game.state[next]);
+    dbug && console.log((geneIndex ? '' : '') + player.mark
+      + " moves to " + next + ' ' + (game.state[next] === 0 ? '' : '[illegal]'));
+
+    let winner = this.update(next);
+    this.render(dbug);
+
+    return winner;
+  }
+
+  
   computeBaseCases() {
     let uniqueCases = this.parseUniqueCases();
     let baseCases = [];
@@ -16,52 +66,46 @@ class TicTacToe {
       caseArray.forEach(state => stateToBaseMap[state] = bca);
       baseCases[geneIndex] = caseArray[0];
     });
-  
+
     console.log(Object.entries(stateToBaseMap).length + ' total states');
     console.log(baseCases.length + ' genes per individual');
-  
+
     let transforms = ['', 'r', 'rr', 'rrr', 'f', 'fr', 'frr', 'frrr'];
-  
+
     return { baseCases, transforms, stateToBaseMap };
   }
 
   parseUniqueCases() {
-  
+
     let total = 3 ** 9, states = [], baseCaseSets = {};
     for (let i = 0; i < total; i++) states[i] = [];
-  
+
     //let unique = new Set();
     for (let i = 0; i < states.length; i++) {
       let state3str = decToBase(i);
-  
+
       let numXs = state3str.split('1').length - 1;
       let numOs = state3str.split('2').length - 1;
       let diff = numXs - numOs;
       if (diff < 0 || diff > 1) continue; // illegal mark count
-  
+
       let winners = getWinners(state3str);
       if (winners.length > 1) continue; // two winners
       if (winners[0] === '2' && numXs > numOs) continue; // O wins, then X moves
       if (winners[0] === '1' && numXs === numOs) continue; // X wins, then O moves
-  
+
       // create a hash as key for each base case set
       let permutations = perms(state3str);
       let hash = permutations.slice().sort().join('-');
       baseCaseSets[hash] = permutations;
     }
-  
+
     let uniqueCases = []; // convert to array [{caseArray, geneIndex}]
     Object.entries(baseCaseSets).forEach(([a, b], i) => {
       uniqueCases.push({ caseArray: orderCases(b[0]), geneIndex: i });
     });
-  
-    return uniqueCases; // array {caseArray, geneIndex} 
-  }
 
-  reset() {
-    this.state = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-    this._turn = 1; // 1 (X) or 2 (O)
-    this._winner = 0;
+    return uniqueCases; // array {caseArray, geneIndex} 
   }
 
   updateOnClick(mx, my) {
@@ -102,7 +146,7 @@ class TicTacToe {
     return this._winner;
   }
 
-  checkForWinningPosition() {
+  checkForWinningPosition() { // DUP?
     let s = this.state;
     if (s[0] && s[0] == s[1] && s[1] == s[2]) return [0, 1, 2];
     if (s[3] && s[3] == s[4] && s[4] == s[5]) return [3, 4, 5];
@@ -129,7 +173,7 @@ class TicTacToe {
   }
 
   showWin(dbug) {
-    let {mark, position} = this._winner;
+    let { mark, position } = this._winner;
     if (dbug) {
       if (mark === '*') return console.log('DRAW\n');
       console.log(mark + 's WIN');
@@ -138,6 +182,18 @@ class TicTacToe {
 }
 
 //////////////////////////////////////////////////////////////////////
+
+function differingIndexes(original, updated) {
+  //console.log('differingIndexes', a, b);
+  if (!original) throw Error('No old state');
+  if (!updated) throw Error('No updated state');
+
+  let diffs = [];
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] !== updated[i]) diffs.push(i);
+  }
+  return diffs;
+}
 
 function decToBase(num, base = 3, strlen = 9) {
   let dec = num.toString(base); // convert to base
@@ -205,7 +261,7 @@ function transformBaseCase(state, txString) {
 
 
 function getWinners(state) {
-  let s = state; 
+  let s = state;
 
   // X's
   let xWins = false;

@@ -1,21 +1,24 @@
 const TicTacToe = require('./tictactoe');
 
-let popsize = 500;
+let popsize = 1000;
 let pMutate = 0.001;
 let pReplicate = 0.10
 let pCrossover = 0.15;
-let maxGenerations = 1000;
-let idgen = 0, numGames = 0;
+let maxGenerations = 100;
+let idgen = 0, totalGames = 0;
 
 (function main() {
   let game = new TicTacToe();
-  const ai = require('./best')
-  //console.log(ai);
-  let { baseCases, stateToBaseMap } = game.baseCaseData;
-  console.log(stateToBaseMap['002210100']);
-  console.log(ai.genes['002210100']);
-  //let gen = 0, matrix, population = initPop(game);
-  return;
+  if (0) {
+    // const ai = require('./best')
+    // let { baseCases, stateToBaseMap } = game.baseCaseData;
+    // console.log(stateToBaseMap['002210100']);
+    // console.log(ai.genes['002210100']);
+    // return;
+  }
+  let gen = 0, matrix;
+  let population = initPop(game); // X,O
+  //console.log(population);
   while (++gen <= maxGenerations) {
     matrix = playAll(population, game);
     let done = assessFitness(population, matrix, gen);
@@ -27,25 +30,105 @@ let idgen = 0, numGames = 0;
 
 function initPop(game) {
 
-  let population = [];
+  let X = [], O = [];
   let baseCases = game.baseCaseData.baseCases;
-  console.log(`Initializing ${popsize} individuals,`
-    + ` ${baseCases.length} genes each`);
-  for (let j = 0; j < popsize; j++) {
-    let genes = new Array(baseCases.length); // =765
-    for (let i = 0; i < genes.length; i++) {
-      genes[i] = randomMove(baseCases[i]);
+  let nums = [Math.floor(popsize / 2), Math.ceil(popsize / 2)];
+  for (let k = 0; k < nums.length; k++) {
+    let mark = (k == 0) ? 'X' : 'O';
+    for (let j = 0; j < nums[k]; j++) {
+      let genes = new Array(baseCases.length);
+      for (let i = 0; i < genes.length; i++) {
+        genes[i] = randomMove(baseCases[i]);
+      }
+      let cand = { mark, genes, fitness: 0, id: ++idgen };
+      if (mark === 'X') X.push(cand);
+      if (mark === 'O') O.push(cand);
     }
-    population.push({ genes, fitness: 0, id: ++idgen });
   }
-  return population;
+  console.log(`Created ${X.length + O.length} individuals (${X.length} Xs, ${O.length} Os)`
+    + ` with ${baseCases.length} genes each`);
+
+  return { X, O };
 }
 
-function differingIndexes(a, b) {
+function playAll(population, game, dbug) {
+  let { X, O } = population;
+
+  // console.log(X.map(x => x.id));
+  // console.log(O.map(x => x.id));
+
+  //  let winMatrix = [...Array(X.length)].map(() => [...Array(O.length)]);
+  let winMatrix = [...Array(popsize)].map(() => [...Array(popsize)]);
+  for (let i = 0; i < X.length; i++) {
+    for (let j = 0; j < O.length; j++) {
+      //console.log(i,j);
+      //console.log(X[i].id +' vs ' +O[j].id);
+      let winner = play(game, X[i], O[j], dbug);
+      winMatrix[i][j + X.length] = winner.mark;
+      totalGames++;
+    }
+  }
+  //console.log(matrixInfoOld(winMatrix));
+  return winMatrix;
+  //console.log(winMatrix);
+
+}
+
+function playAllOld(population, game, dbug) {
+
+  let { X, O } = population;
+  let winMatrix = [...Array(popsize)].map(() => [...Array(popsize)]);
+  for (let j = 0; j < popsize; j++) {
+    for (let i = j; i < popsize; i++) {
+      //if (pop[j].mark === pop[i].mark) continue;
+      let winner = play(game, X[j], O[i], dbug);
+      winMatrix[j][i] = winner.mark;
+      totalGames++;
+      dbug && console.log((c++) + ")", j + '(X) vs ' + i + '(O) =>',
+        (winner.draw ? 'draw' : ((winner.mark === 'X' ? j +
+          '(X)' : i + '(O)') + ' wins ')));// + hash(winner))));
+      //return winMatrix;
+    }
+  }
+  return winMatrix;
+}
+
+function play(game, a, b, dbug) {
+  //console.log('play',a.id, b.id);
+  game.reset();
+  let winMove, i, player = a;
+  for (i = 0; i < 9; i++) {
+    winMove = game.move(player, dbug);
+    if (winMove) {
+      let winner = winMove;
+      if (!winMove.draw) {
+        winner = winMove.mark === a.mark ? a : b;
+      }
+      return winner;
+    }
+    player = (player === a) ? b : a;
+  }
+  game.render(dbug);
+  throw Error('invalid state:' + game);
+}
+
+function randomMove(state3) {
+  let open = [];
+  for (let i = 0; i < state3.length; i++) {
+    if (state3[i] === '0') open.push(i);
+  }
+  return open.length ? rand(open) : -1;
+}
+
+/*
+function differingIndexes(original, updated) {
   //console.log('differingIndexes', a, b);
+  if (!original) throw Error('No old state');
+  if (!updated) throw Error('No updated state');
+
   let diffs = [];
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) diffs.push(i);
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] !== updated[i]) diffs.push(i);
   }
   return diffs;
 }
@@ -69,7 +152,7 @@ function move(game, player, dbug) {
 
     // make move on base-case state
     let baseCaseArr = caseArray[0].split('');
-    if (baseCaseArr[baseCaseMove] !== '0') throw Error('Illegal move to filled spac: '
+    if (baseCaseArr[baseCaseMove] !== '0') throw Error('Illegal move to filled space: '
       + baseCaseArr[baseCaseMove]);
 
     baseCaseArr[baseCaseMove] = (player.mark === 'X' ? '1' : '2');
@@ -90,17 +173,9 @@ function move(game, player, dbug) {
   game.render(dbug);
 
   return winner;
-}
+}*/
 
-function randomMove(state3) {
-  let open = [];
-  for (let i = 0; i < state3.length; i++) {
-    if (state3[i] === '0') open.push(i);
-  }
-  return open.length ? rand(open) : -1;
-}
-
-function sumWeights(symbol, caseStr) {
+/*function sumWeights(symbol, caseStr) {
   let total = 0;
   for (let i = 0; i < caseStr.length; i++) {
     if (caseStr[i] === symbol) total += (i + 1);
@@ -116,27 +191,6 @@ function prodWeights(symbol, caseStr) {
   return total;
 }
 
-function play(game, a, b, dbug) {
-  //console.log(a.id, b.id, dbug);
-  a.mark = 'X';
-  b.mark = 'O';
-  game.reset();
-  let winMove, i, player = a;
-  for (i = 0; i < 9; i++) {
-    winMove = move(game, player, dbug);
-    if (winMove) {
-      let winner = winMove;
-      if (!winMove.draw) {
-        winner = winMove.mark === a.mark ? a : b;
-      }
-      return winner;
-    }
-    player = (player === a) ? b : a;
-  }
-  game.render(dbug);
-  throw Error('invalid state:' + game);
-}
-
 function transformBaseCase(state, txs) {
   let current = state;
   if (!txs.length) return state;
@@ -146,6 +200,7 @@ function transformBaseCase(state, txs) {
   }
   return current;
 }
+
 
 // min sum of X-indexes, then min sum of y-indexes
 // then min prod of X-indexes, then min prod of y-indexes
@@ -158,9 +213,64 @@ function sortCases(a, b) {
   if (aXs !== bXs) return aXs - bXs;
   aOs = prodWeights('2', a), bOs = prodWeights('2', b);
   return aOs - bOs;
+}*/
+
+function evolve(population, game) {
+
+  let lastGens = [population.X.slice(), population.O.slice()]; // copy
+
+  Object.values(population).forEach((pop, i) => {
+    
+    let lastGen = lastGens[i];
+
+    pop.length = 0; // clear 
+
+    // replicate
+    let numSurvivors = Math.floor(lastGen.length * pReplicate);
+    pop.push(...lastGen.slice(0, Math.max(1, numSurvivors)));
+
+    let fitnessSum = lastGen.reduce((a, c) => a + c.fitness, 0);
+    while (pop.length < lastGen.length) {
+
+      let dad, mom = fpselect(lastGen, fitnessSum);
+      do { // make sure dad/mom are different
+        dad = fpselect(lastGen, fitnessSum);
+      } while (dad === mom);
+
+      // reproduce
+      let child = { fitness: 0, id: ++idgen, genes: [] };
+      let parents = [mom, dad];
+      let parentIdx = randi(parents.length);
+
+      // with multiple crossover points (pCrossover)
+      for (let i = 0; i < parents[parentIdx].genes.length; i++) {
+        child.genes.push(parents[parentIdx].genes[i]);
+        if (rand() < pCrossover) {
+          parentIdx = (parentIdx + 1) % parents.length;
+        }
+      }
+
+      if (child.genes.length !== mom.genes.length) {
+        throw Error('invalid state'); // double-check
+      }
+
+      // mutate
+      for (let i = 0; i < child.genes.length; i++) {
+        if (child.genes[i] > -1 && rand() < pMutate) {
+          child.genes[i] = randomMove(game.baseCaseData.baseCases[i]); // ? ok
+        }
+      }
+
+      pop.push(child);
+    }
+  });
+  let total = 0;
+  Object.values(population).forEach(p => total += p.length);
+  if (total !== popsize) throw Error('double-check');
+
 }
 
-function evolve(pop, game) {
+function evolveOld(pop, game) {
   let lastGen = pop.slice(); // copy
   pop.length = 0; // clear 
 
@@ -204,46 +314,66 @@ function evolve(pop, game) {
   }
 }
 
-function playAll(pop, game, dbug) {
-  let winMatrix = [...Array(popsize)].map(() => [...Array(popsize)]);
-  for (let j = 0, c = 0; j < popsize; j++) {
-    for (let i = 0; i < popsize; i++) {
-      if (i == j) continue;
-      let winner = play(game, pop[j], pop[i], dbug);
-      winMatrix[j][i] = winner.mark;
-      numGames++;
-      dbug && console.log((c++) + ")", j + '(X) vs ' + i + '(O) =>',
-        (winner.mark === 'X' ? j + '(X)' : i + '(O)') + ' wins ' + hash(winner));
-      //return winMatrix;
+// function hash(cand) {
+//   if (!cand) throw Error('null candidate')
+//   if (!cand.genes) throw Error('no genes')
+//   return '[#' + cand.genes.slice(0, 5).join('')
+//     + cand.genes.slice(-5).join('') + ']';
+// }
+
+function assessFitness(population, matrix, gen) {
+  let { X, O } = population;
+
+  for (let i = 0; i < X.length; i++) { // zero out vars
+    X[i].wins = X[i].losses = X[i].draws = X[i].gamesPlayed = 0;
+    for (let j = X.length; j < X.length + O.length; j++) {
+      let po = O[j - X.length];
+      po.wins = po.losses = po.draws = po.gamesPlayed = 0;
     }
   }
-  return winMatrix;
+
+  for (let i = 0; i < X.length; i++) {
+    let px = X[i];
+    for (let j = X.length; j < X.length + O.length; j++) {
+      let po = O[j - X.length];
+      po.gamesPlayed++;
+      px.gamesPlayed++;
+      if (matrix[i][j] === 'X') {
+        px.wins++;
+        po.losses++;
+      }
+      else if (matrix[i][j] === 'O') {
+        po.wins++;
+        px.losses++;
+      }
+      else if (matrix[i][j] === '*') {
+        px.draws++;
+        po.draws++;
+      }
+    }
+  }
+  X.forEach(p => p.fitness = (p.gamesPlayed - p.losses) / p.gamesPlayed);
+  X.sort((a, b) => b.fitness - a.fitness);
+
+  O.forEach(p => p.fitness = (p.gamesPlayed - p.losses) / p.gamesPlayed);
+  O.sort((a, b) => b.fitness - a.fitness);
+
+  logPop(X, O, matrix, gen);
+
+  return (X[0].fitness === 1 && O[0].fitness === 1); // done ?
 }
 
+function assessFitnessOrig(population, matrix, gen) {
 
+  let { X, O } = population;
 
-function hash(cand) {
-  return '[#' + cand.genes.slice(0, 5).join('')
-    + cand.genes.slice(-5).join('') + ']';
-}
-
-function baseToDec(str, base = 3) {
-  return parseInt(str, base);
-}
-
-function decToBase(num, base = 3, strlen = 9) {
-  let dec = num.toString(base); // convert to base
-  while (dec.length < strlen) dec = "0" + dec; // pad
-  return dec;
-}
-
-function assessFitness(pop, matrix, gen) {
-  let mark, wins = Array(popsize).fill(0);
+  //Xs.forEach((x,i) => );
+  let wins = Array(popsize).fill(0);
   let draws = Array(popsize).fill(0);
   let losses = Array(popsize).fill(0);
   for (let j = 0; j < popsize; j++) {
     for (let i = 0; i < popsize; i++) {
-      mark = matrix[j][i];
+      let mark = matrix[j][i];
       if (mark == "X") {
         wins[j]++;
         losses[i]++;
@@ -258,23 +388,40 @@ function assessFitness(pop, matrix, gen) {
       }
     }
   }
-  //let classes = pop.map((q,i) => q.losses === losses[i]).length;
-  let numGames = ((popsize - 1) * 2);
-  pop.forEach((p, i) => {
-    let fitness = (numGames - losses[i]) / numGames;
-    p.fitness = fitness;
-    p.wins = wins[i];
-    p.draws = draws[i];
-    p.losses = losses[i];
-  });
-  pop.sort((a, b) => b.fitness - a.fitness);
 
-  logPop(pop, matrix, gen);
+  let computeFitness = (p, i) => {
+    p.gamesPlayed = p.mark === 'X' ? O.length : X.length;
+    p.fitness = (p.gamesPlayed - losses[i]) / p.gamesPlayed;
+    p.wins = wins[i]; // rm?
+    p.draws = draws[i]; // rm
+    p.losses = losses[i]; // rm
+  }
+  let sortByFitness = (a, b) => b.fitness - a.fitness;
 
-  return (pop[0].fitness === 1); // done ?
+  X.forEach(computeFitness);
+  X.sort(sortByFitness);
+
+  O.forEach(computeFitness);
+  O.sort(sortByFitness);
+
+  logPop(X, O, matrix, gen);
 }
 
-function matrixInfo(matrix) {
+function matrixInfo(Xs, Os, matrix) {
+  //console.log('logMatrix');
+  let info = '\n\n     ' + [...Array(Math.min(10, Os.length)).keys()].join(' ')
+    + (popsize > 10 ? ' ...' : '') + '\n    ' + '-'.repeat(Os.length * 2 + 1) + '\n';
+  for (let i = 0; i < Xs.length; i++) {
+    info += (i < 10 ? ' ' + i : i) + ' |';
+    for (let j = Xs.length; j < Xs.length + Os.length; j++) {
+      info += ' ' + matrix[i][j];
+    }
+    info += '\n';
+  }
+  return info;
+}
+
+function matrixInfoOld(matrix) {
   let info = '\n\n    ' + [...Array(Math.min(10, popsize)).keys()].join(' ')
     + (popsize > 10 ? ' ...' : '') + '\n   ' + '-'.repeat(popsize * 2) + '\n';
   for (let i = 0; i < popsize; i++) {
@@ -296,45 +443,51 @@ function padr(str, len = (popsize > 99 ? 3 : 2), chr = ' ') {
   return res;
 }
 
-function popInfo(pop) {
+function popInfo(p) {
   let pad1 = idgen.toString().length;
-  return pop.reduce((acc, c) => acc + `#${padr(c.id, pad1)} `
+  let best = p.slice(0, Math.min(p.length, 3));
+  return best.reduce((acc, c) => acc + `#${padr(c.id, pad1)} `
     + `(${c.fitness.toFixed(3)}) ${c.wins} wins,`
-    + ` ${c.losses} losses, ${c.draws} draws\n`, '');
+    + ` ${c.losses} losses, ${c.draws} draws (${c.mark})\n`, '');
 }
 
 function logResult(population, num, fname = 'best.js') {
-  let pop = population.slice(0, Math.min(5, popsize));
+  let { X, O } = population;
+  //let pop = population.slice(0, Math.min(5, popsize));
   console.log('-'.repeat(50) + '\nAfter '
-    + `${numGames.toLocaleString()}`
+    + `${totalGames.toLocaleString()}`
     + ` games and ${num} generations:\n`);
-  console.log(`RESULT\n${popInfo(pop)}`);
+  console.log(`RESULT\n${popInfo(X)}\n${popInfo(O)}`);
   if (fname) {
-    let best = population[0];
-    best.meta = {
-      generations: num,
-      population: popsize,
-      date: new Date(),
-      id: best.id,
-      wins: best.wins,
-      draws: best.draws,
-      losses: best.losses,
-      fitness: best.fitness
-    }
-    require('fs').writeFileSync(fname, 'ai=' + JSON.stringify(best));
-    console.log('\nWrote best (#' + pop[0].id + ') to \'' + fname + '\'\n');
+    let strategies = [X[0], O[0]];
+    strategies.forEach(best =>
+      best.meta = {
+        generations: num,
+        population: popsize,
+        date: new Date(),
+        id: best.id,
+        wins: best.wins,
+        draws: best.draws,
+        losses: best.losses,
+        fitness: best.fitness
+      });
+    require('fs').writeFileSync(fname, 'strategies=' + JSON.stringify(strategies));
+    console.log('Wrote bests [#' + X[0].id + ',#' + O[0].id + '] to \'' + fname + '\'\n');
   }
 }
 
-function logPop(pop, matrix, generation) {
-  let gamesPer = ((popsize - 1) * 2);
+function logPop(X, O, matrix, generation) {
   process.stdout.write('Gen #' + generation + ' ('
-    + numGames.toLocaleString() + ' games played)'
-    + ' fitness=' + pop[0].fitness.toFixed(3) + '\r');
-  if (popsize <= 10) {
-    if (matrix) console.log(matrixInfo(matrix));
-    console.log(`POPULATION (${popsize} players, `
-      + `${gamesPer} games each)\n${popInfo(pop)}`);
+    + totalGames.toLocaleString() + ' games played)'
+    + ' fitness=' + X[0].fitness.toFixed(3) + '/'
+    + O[0].fitness.toFixed(3) + '\r');
+  if (popsize <= 10) {// || generation===1) {
+    if (matrix) console.log(matrixInfo(X, O, matrix));
+    console.log(`POP (${popsize} players, `
+      + `Xs played ${X[0].gamesPlayed} games, `
+      + `Os played ${O[0].gamesPlayed})\n`);
+    console.log(popInfo(X));
+    console.log(popInfo(O) + '\n');
   }
 }
 
@@ -370,7 +523,7 @@ function rand() {
   return arguments.length === 1 ? crand * arguments[0] :
     crand * (arguments[1] - arguments[0]) + arguments[0];
 }
-
+/*
 function rotate(state3a, dir = 'right') {
   //if (!Array.isArray(state3a)) throw Error('takes array');
   let map = [2, 5, 8, 1, 4, 7, 0, 3, 6], res = [];
@@ -388,8 +541,9 @@ function flip(state3a) {
     res[map[i]] = state3a[i];
   }
   return res.join('');
-}
+}*/
 
+/*
 function perms(state3s) {
   let perms = [];
   let flipped = flip(state3s);
@@ -531,7 +685,16 @@ function testTransform(players) { // DBUGGING ONLY
       if (j == 1 && i == 1) {
         console.log('hit!!!');
       }
-      move(game, player, 1);
+      move(game, player, 1); // game.move() ?
     }
   }
 }
+function baseToDec(str, base = 3) {
+  return parseInt(str, base);
+}
+
+function decToBase(num, base = 3, strlen = 9) {
+  let dec = num.toString(base); // convert to base
+  while (dec.length < strlen) dec = "0" + dec; // pad
+  return dec;
+}*/

@@ -1,6 +1,6 @@
 const TicTacToe = require('./tictactoe');
 
-let popsize = 1000;
+let popsize = 100;
 let pMutate = 0.001;
 let pReplicate = 0.10
 let pCrossover = 0.15;
@@ -220,9 +220,10 @@ function evolve(population, game) {
   let lastGens = [population.X.slice(), population.O.slice()]; // copy
 
   Object.values(population).forEach((pop, i) => {
-    
-    let lastGen = lastGens[i];
 
+    //if (!i) return; // don't evolve X's
+
+    let lastGen = lastGens[i];
     pop.length = 0; // clear 
 
     // replicate
@@ -238,7 +239,7 @@ function evolve(population, game) {
       } while (dad === mom);
 
       // reproduce
-      let child = { fitness: 0, id: ++idgen, genes: [] };
+      let child = { fitness: 0, id: ++idgen, genes: [], mark: mom.mark };
       let parents = [mom, dad];
       let parentIdx = randi(parents.length);
 
@@ -267,7 +268,6 @@ function evolve(population, game) {
   let total = 0;
   Object.values(population).forEach(p => total += p.length);
   if (total !== popsize) throw Error('double-check');
-
 }
 
 function evolveOld(pop, game) {
@@ -453,6 +453,10 @@ function popInfo(p) {
 
 function logResult(population, num, fname = 'best.js') {
   let { X, O } = population;
+  let totalWins = X.reduce((acc, c) => acc + c.wins, 0) + O.reduce((acc, c) => acc + c.wins, 0);
+  let totalLosses = X.reduce((acc, c) => acc + c.losses, 0) + O.reduce((acc, c) => acc + c.losses, 0);
+  let totalDraws = X.reduce((acc, c) => acc + c.draws, 0) + O.reduce((acc, c) => acc + c.draws, 0);
+
   //let pop = population.slice(0, Math.min(5, popsize));
   console.log('-'.repeat(50) + '\nAfter '
     + `${totalGames.toLocaleString()}`
@@ -497,7 +501,7 @@ function tselect(pool) { // tournament selection
 }
 
 function fpselect(pool, summedFitness) { // fitness proportionate selection
-  if (!summedFitness) throw Error('requires summed fitness');
+  if (typeof summedFitness === 'undefined') throw Error('requires summed fitness');
   let rand = Math.random()
   let res = pool.find((ele) => (rand -= (ele.fitness / summedFitness)) < 0);
   return res;

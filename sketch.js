@@ -7,7 +7,12 @@ function setup() {
   textFont("courier", 150);
   strokeWeight(6);
   render(game = new TicTacToe(this));
-  loadAI(ai, 'X');
+  if (Math.random() < .5) {
+    loadAI(strategies[0], 'X');
+  }
+  else {
+    loadAI(strategies[1], 'O');
+  }
 }
 
 function loadAI(strategy, mark) {

@@ -1,0 +1,329 @@
+    
+      // create gene template from unique cases
+  //let uniqueCaseSets = parseUniqueCases();
+  //console.log(uniqueCaseSets.length, 'unique cases\n');
+  // for (let i = 0; i < baseCaseArray.length; i++) {
+  //   let caseSet = baseCaseArray[i];
+  //   geneTemplate[i] = caseSet[0]; // canonical baseCase via sort
+  //   caseSet.forEach((c) => stateLookup[c] = i);
+  // }
+  //console.log(geneTemplate.slice(0,10), '\n');
+
+    
+    
+    let set = ['210000000', '012000000', '200100000', '000100200', '002001000', '000001002', '000000210', '000000012'];
+  //let transform = ['','f','r','rr','rrr','fr','frr','frrr'];
+  let s = set[0];
+  let set2 = [
+    doTrans(s, ''), doTrans(s, 'frr'), doTrans(s, 'fr'), doTrans(s, 'rrr'),
+    doTrans(s, 'r'), doTrans(s, 'frrr'), doTrans(s, 'f'), doTrans(s, 'rr')
+  ];
+  let set3 = set.map((k, i) => doTrans(set[0], transforms[i]));
+
+  console.log(set2, set3);
+  return;
+
+
+
+
+  set.forEach(s => console.log(perms(s).join(',')));
+  console.log();
+  let states = stateTrans.map(s => s.state);
+  states.forEach(s => console.log(s));
+  console.log(rotate(states[1], 'left'));
+  //states.sort(sortBaseCases);
+  //states.forEach(s => console.log(perms(s).join(',')));
+  //set[0] 
+
+  //let population = initPop() 
+  // let a = perms('210000000');
+  // let b = perms('012000000');
+  // console.log(a,b);
+  // console.log(bc.join(',') === '210000000,012000000,200100000,000100200,002001000,000001002,000000210,000000012');
+  // console.log(bc.join(','),'\n210000000,012000000,200100000,000100200,002001000,000001002,000000210,000000012');
+  // console.log(bc.join(',')===perms('000001002'));
+
+  // console.log(population[0]);
+  // play(...population.slice(0, 2), true);
+
+
+
+
+  let stateTrans = [{
+    state: [
+      '210000000',
+    ],
+    tx: ''
+  },
+  {
+    state: [
+
+      '012000000',
+
+    ],
+
+  },
+  {
+    state: [
+
+      '200100000',
+
+    ],
+    tx: ''
+  },
+  {
+    state: [
+
+      '000100200',
+
+    ],
+    tx: ''
+  },
+  {
+    state: [
+
+      '002001000',
+
+    ],
+    tx: ''
+  },
+  {
+    state: [
+
+      '000001002',
+
+    ],
+    tx: ''
+  },
+  {
+    state: [
+
+      '000000210',
+
+    ],
+    tx: ''
+  },
+  {
+    state: [
+
+      '000000012'
+    ],
+    tx: ''
+  }];
+ //parseUniqueCases();
+  let baseX = ['000000012', '000000210', '000001002', '000100200', '002001000', '012000000', '200100000', '210000000'];
+  let base = ['000002112', '022001001', '211200000', '100100220', '112002000', '001001022','000200211', '220100100'];
+  //base.sort(sortBaseC
+  
+  console.log(base);
+  return;
+  base.forEach(b => stateLookup[b] = 7);
+  console.log(base);
+
+function mainZ() {
+
+  let total = 3 ** 9, states = [], baseCases = {};
+  let wins = 0, invalids = 0, ok = 0, draws = 0, collisions = 0;
+  for (let i = 0; i < total; i++) states[i] = [];
+
+  // NEXT: do we include draws? why 779
+
+  let unique = new Set();
+  for (let i = 0; i < states.length; i++) {
+    let state3str = decToBase(i);
+
+    //console.log(i,state3str);
+    let numXs = state3str.split('1').length - 1;
+    let numOs = state3str.split('2').length - 1;
+    let diff = numXs - numOs;
+    if (diff < 0 || diff > 1) { // illegal states
+      continue;
+    }
+
+    let winners = getWinners(state3str);
+    if (winners.length > 1) continue; // two winners
+    if (winners[0] === '2' && numXs > numOs) continue; // O wins, then X moves
+    if (winners[0] === '1' && numXs === numOs) continue; // X wins, then O moves
+
+    // create a hash as key for each base case set
+    let caseStrArr = perms(state3str).sort();
+    let hash = caseStrArr.join('-');
+
+    // eliminiate duplicates in list of states
+    unique.clear();
+    caseStrArr.forEach(p => unique.add(p));
+
+    if (baseCases.hasOwnProperty(hash)) collisions++;
+    baseCases[hash] = Array.from(unique);
+  }
+  console.log(Object.keys(baseCases).length, '\n');
+  Object.entries(baseCases).slice(0, 10).forEach(([a, b], i) => console.log(a + '\n  -> ' + b + '\n'));
+}
+
+let test2 = '112002000'.split('');
+let expected2 = '000002112'.split('');
+
+let test = '112002000'.split('');
+let expected1 = '001001022'.split('');
+let expected = [
+  // flip
+  /*[
+    '1', '1', '2',
+    '0', '0', '2',
+    '0', '0', '0'
+  ],*/
+  [
+    '0', '0', '1',
+    '0', '0', '1',
+    '0', '2', '2'
+  ],
+  [
+    '0', '0', '0',
+    '2', '0', '0',
+    '2', '1', '1'
+  ],
+  [
+    '2', '2', '0',
+    '1', '0', '0',
+    '1', '0', '0'
+  ],
+  // flip, then rotate
+  [
+    '0', '0', '0',
+    '0', '0', '2',
+    '1', '1', '2'
+  ],
+  [
+    '1', '0', '0',
+    '1', '0', '0',
+    '2', '2', '0'
+  ],
+  [
+    '2', '1', '1',
+    '2', '0', '0',
+    '0', '0', '0'
+  ],
+  [
+    '0', '2', '2',
+    '0', '0', '1',
+    '0', '0', '1'
+  ]
+];
+function baseCaseIndexOld(state3a) {
+  let perms = [];
+  let flipped = flip(state3a);
+  let opts = [state3a, flipped];
+  perms.push(...opts);
+  for (let i = 0; i < opts.length; i++) {
+    let next = opts[i];
+    for (let j = 0; j < 3; j++) {
+      let tmp = rotate(next);
+      perms.push(tmp);
+      next = tmp;
+    }
+  }
+  let indexes = perms.map(p => baseToDec(p.join('')));
+  return indexes.sort((a, b) => a - b)[0];
+}
+
+(function mainX() {
+  // let mx = perms('001101022'.split(''));
+  // mx.forEach(p => console.log(p.join('')+' '+baseToDec(p.join(''))));
+  // //console.log(mx);
+  // return;
+  //console.log(baseCaseIndex(test));
+  let total = 3 ** 9, states = [];
+  for (let i = 0; i < total; i++) states[i] = [];
+
+  let wins = 0, invalids = 0, ok = 0, draws = 0;
+  for (let i = 0; i < total; i++) {
+    let state3str = decToBase(i);
+    if (hasWinner(state3str)) {
+      wins++;
+      continue;
+    }
+    let numXs = state3str.split('1').length - 1;
+    let numOs = state3str.split('2').length - 1;
+    let diff = numXs - numOs;
+    if (diff < 0 || diff > 1) {
+      invalids++;
+      continue;
+    }
+    if (numXs === 5 && numOs === 4) {
+      draws++;
+      continue;
+    }
+    //if ((numXs + numOs)===9) draws++;
+    ok++;
+    //states[i] =  
+  }
+  let cases = perms(state)
+  console.log(ok);
+  return;
+  //   let idx = baseCaseIndex(state3str.split(''));
+  //   if (idx >= states.length) {
+  //     //console.log(idx, state3str);
+  //     throw Error
+  //     ('got ' + idx + ' for ' + i + '/' + state3str
+  //       + '\n' + perms(state3str.split('')));
+  //   }
+  //   states[idx].push(state3str);
+  // }
+  let bases = [];
+  states.forEach(c => c.length && bases.push(c));
+  bases.forEach((c, i) => console.log(i, c.length));
+  //console.log(bases.length);
+  return;
+  let valid = [], maxNum = 0, minNum = Infinity;
+  for (let i = 0; i < states.length; i++) {
+    let sl = states[i].length;
+    if (!sl) continue;
+    if (sl) valid.push(states[i]);
+    if (sl < minNum) minNum = sl;
+    else if (sl > maxNum) maxNum = sl;
+  }
+  console.log(valid.length, minNum, maxNum, wins++, invalids, wins++ + invalids + valid.length);
+  return;
+  let res2 = flip(test2);
+  console.log(res2, res2.filter((r, i) => r === expected2[i]).length === test2.length);
+  console.log(test);
+  let res = rotate(test);
+  console.log(res, res.filter((r, i) => r === expected1[i]).length === test.length);
+  res = rotate(res);
+  console.log(res);
+  res = rotate(res);
+  console.log(res);
+  res = rotate(res);
+  console.log(res, res.filter((r, i) => r === test[i]).length === test.length);
+  /*
+  let total = 2;//3**9;
+  let states = [];
+  for (let i = 0; i < total; i++) {
+    let state3 = decToBase(i).split('');
+    let open = state3.reduce((s, c, i) => {
+      if (c === '0') s.push(i);
+      return s;
+    }, []);
+    console.log(state3,open);
+  }
+  */
+  return;
+
+  // test
+  if (0) {
+    //initPop();
+    //play(...initPop().slice(0, 2), true);
+    popsize = 4;
+    let pop = [
+      { genes: ('0'.repeat(10)).split(''), fitness: .1, id: 0 },
+      { genes: ('1'.repeat(10)).split(''), fitness: .2, id: 1 },
+      { genes: ('2'.repeat(10)).split(''), fitness: .4, id: 2 },
+      { genes: ('3'.repeat(10)).split(''), fitness: .8, id: 3 }
+    ];
+    let result = [0, 0, 0, 0];
+    for (let i = 0; i < 15000; i++) {
+      let win = fpselect(pop, 1.5);
+      result[win.id]++;
+    }
+    return;
+  }

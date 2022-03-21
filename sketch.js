@@ -1,23 +1,31 @@
-let game, locked;
+let game, locked, timer;
 
 function setup() {
-  createCanvas(600, 600);
+  createCanvas(600, 600).doubleClicked(reset);
   textAlign(CENTER, CENTER);
   ellipseMode(CORNER);
   textFont("courier", 150);
   strokeWeight(6);
-  render(game = new TicTacToe(this));
-  loadAI(ai, 'X');
+  reset();
 }
 
-function loadAI(strategy, mark) {
+function reset() {
+  clearTimeout(timer);
+  render(game = new TicTacToe(this));
+  //game.state = '002011000'.split('');
+  let bcs = game.baseCaseData.stateToBaseMap['002011000'];//210010000
+  console.log(bcs.caseArray[0] + ' == ' + game.baseCaseData.baseCases[27] + ' -> ' + strategies[1].genes[27]);
+  console.log(strategies[0].testedStates.length + ' tested states [X]');
+  console.log(strategies[1].testedStates.length + ' tested states [O]');
+  loadAI(strategies[Math.random() < .5 ? 0 : 1]);
+}
+
+function loadAI(strategy) {
   this.ai = strategy;
-  this.ai.mark = mark;
-  console.log(strategy.meta);
-  if (this.ai.mark === 'X') {
-    game.update(strategy.genes[0]);
-    render(game);
-  }
+  console.log('LOADED', this.ai.mark);
+  if (this.ai.mark === 'X') game.update(this.ai.genes[0]);
+  locked = false;
+  render(game);
 }
 
 function mouseReleased() {
@@ -28,14 +36,54 @@ function mouseReleased() {
     }
     if (this.ai && !locked) {
       locked = true;
-      setTimeout(() => {
-        let state = game.state.join('');
-        let next = this.ai.genes[baseToDec(state)];
-        locked = game.update(next);
-        render(game);
-      }, 500);
+      timer = setTimeout(nextMove, 500);
     }
   }
+}
+
+function nextMove() {
+  let next, state = game.state.join("");
+
+  let { transforms, stateToBaseMap } = game.baseCaseData;
+  let { caseArray, geneIndex } = stateToBaseMap[state];
+  let stateIndex = caseArray.indexOf(state);
+  let baseCase = caseArray[0];
+  let onBaseCase = stateIndex === 0;
+
+  // make move on base-case state
+  let baseCaseMove = this.ai.genes[geneIndex];
+  if (typeof baseCaseMove === 'undefined') throw Error("No gene for base case: " + baseCase);
+
+  // caseArray => allCases ?
+
+  if (onBaseCase) {
+    next = baseCaseMove;
+    console.log(baseCase + '->' + next + '/' + next);
+  }
+  else {
+    // make move on base-case state
+    let baseCaseArr = baseCase.split('');
+    if (baseCaseArr[baseCaseMove] !== '0') {
+      throw Error('Illegal move to filled space: ' + baseCaseArr[baseCaseMove]);
+    }
+
+    baseCaseArr[baseCaseMove] = (this.ai.mark === 'X' ? '1' : '2');
+    let updatedBaseCaseState = baseCaseArr.join('');
+    let nextRealState = transformBaseCase(updatedBaseCaseState, transforms[stateIndex]);
+
+    let diffIdx = differingIndexes(state, nextRealState);
+    if (diffIdx.length !== 1) {
+      throw Error('invalid state: ' + state + ' !=(-1) ' + nextRealState);
+    }
+    next = diffIdx[0];
+    console.log(baseCase + '->' + baseCaseMove + '/' + next);
+  }
+  if (typeof next === 'undefined') {
+    throw Error('no next for: ' + state + ' base=' + baseCase);
+  }
+
+  locked = game.update(next);
+  render(game);
 }
 
 function render(game) {
@@ -78,4 +126,16 @@ function render(game) {
 
 function baseToDec(str, base = 3) {
   return parseInt(str, base);
+}
+
+function differingIndexes(original, updated) {
+  //console.log('differingIndexes', a, b);
+  if (!original) throw Error('No old state');
+  if (!updated) throw Error('No updated state');
+
+  let diffs = [];
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] !== updated[i]) diffs.push(i);
+  }
+  return diffs;
 }

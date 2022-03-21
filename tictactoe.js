@@ -1,16 +1,28 @@
+let IdGen = 0;
+
 class TicTacToe {
-  constructor(p5) {
+  constructor(p5, opts = {}) {
     this.p5 = p5;
     this.values = ["", "X", "O"];
-    this.baseCaseData = this.computeBaseCases();
+    this.baseCaseData = opts.baseCaseData || this.computeBaseCases();
     this.cellSize = this.p5 ? Math.max(this.p5.width, this.p5.height) / 3 : 0;
-    this.reset();
+    if (!opts.isCopy) this.reset();
+    this.id = ++IdGen;
   }
-
+  copy() {
+    let newGame = new TicTacToe(this.p5,
+      { baseCaseData: this.baseCaseData, isCopy: true });
+    newGame.cellSize = this.cellSize
+    newGame._winner = this._winner;
+    newGame._turn = this._turn;
+    newGame.state = this.state.slice();
+    return newGame;
+  }
   reset() {
     this.state = [0, 0, 0, 0, 0, 0, 0, 0, 0];
     this._turn = 1; // 1 (X) or 2 (O)
     this._winner = 0;
+    return this;
   }
 
   move(player, dbug) {
@@ -46,9 +58,15 @@ class TicTacToe {
 
       next = diffIdx[0];
     }
+
+    return this.moveTo(player.mark, next, dbug);
+  }
+
+  moveTo(mark, next, dbug) {
+
     //dbug && console.log(game.state[next]);
-    dbug && console.log((geneIndex ? '' : '') + player.mark
-      + " moves to " + next + ' ' + (game.state[next] === 0 ? '' : '[illegal]'));
+    dbug && console.log(this.id + ') ' + mark + " moves to " + next
+      + ' ' + (this.state[next] === 0 ? '' : '[illegal]'));
 
     let winner = this.update(next);
     this.render(dbug);
@@ -56,7 +74,7 @@ class TicTacToe {
     return winner;
   }
 
-  
+
   computeBaseCases() {
     let uniqueCases = this.parseUniqueCases();
     let baseCases = [];
@@ -68,7 +86,7 @@ class TicTacToe {
     });
 
     console.log(Object.entries(stateToBaseMap).length + ' total states');
-    console.log(baseCases.length + ' genes per individual');
+    console.log(baseCases.length + ' basecase states');
 
     let transforms = ['', 'r', 'rr', 'rrr', 'f', 'fr', 'frr', 'frrr'];
 

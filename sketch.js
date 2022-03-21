@@ -1,13 +1,22 @@
 let game, locked;
 
 function setup() {
-  createCanvas(600, 600);
+  createCanvas(600, 600).doubleClicked(reset);
   textAlign(CENTER, CENTER);
   ellipseMode(CORNER);
   textFont("courier", 150);
   strokeWeight(6);
-  render(game = new TicTacToe(this));
-  if (Math.random() < .5) {
+  game = new TicTacToe(this);
+  reset();
+}
+function reset() {
+  render(game.reset());
+  //game.state = '002011000'.split('');
+  let bcs = game.baseCaseData.stateToBaseMap['002011000'];//210010000
+  console.log(bcs.caseArray[0]+' == '+game.baseCaseData.baseCases[27]+' -> '+strategies[1].genes[27]);
+  console.log(strategies[0].testedStates.length+' tested states [X]');
+  console.log(strategies[1].testedStates.length+' tested states [O]');
+  if (Math.random() < -1) {
     loadAI(strategies[0], 'X');
   }
   else {
@@ -18,7 +27,6 @@ function setup() {
 function loadAI(strategy, mark) {
   this.ai = strategy;
   this.ai.mark = mark;
-  console.log(strategy.meta);
   if (this.ai.mark === 'X') {
     game.update(strategy.genes[0]);
     render(game);
@@ -55,12 +63,13 @@ function nextMove() {
 
   if (onBaseCase) {
     next = baseCaseMove;
+    console.log(baseCase + '->' +next+'/'+next);
   }
   else {
     // make move on base-case state
     let baseCaseArr = baseCase.split('');
     if (baseCaseArr[baseCaseMove] !== '0') {
-      throw Error('Illegal move to filled spac: '+ baseCaseArr[baseCaseMove]);
+      throw Error('Illegal move to filled space: '+ baseCaseArr[baseCaseMove]);
     }
 
     baseCaseArr[baseCaseMove] = (this.ai.mark === 'X' ? '1' : '2');
@@ -71,8 +80,8 @@ function nextMove() {
     if (diffIdx.length !== 1) {
       throw Error('invalid state: '+ state + ' !=(-1) ' + nextRealState);
     }
-
     next = diffIdx[0];
+    console.log(baseCase + '->' +baseCaseMove+'/'+next);
   }
   if (typeof next === 'undefined') {
     throw Error('no next for: ' + state + ' base=' + baseCase);

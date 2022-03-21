@@ -1,4 +1,4 @@
-let game, locked;
+let game, locked, timer;
 
 function setup() {
   createCanvas(600, 600).doubleClicked(reset);
@@ -6,31 +6,26 @@ function setup() {
   ellipseMode(CORNER);
   textFont("courier", 150);
   strokeWeight(6);
-  game = new TicTacToe(this);
   reset();
 }
+
 function reset() {
-  render(game.reset());
+  clearTimeout(timer);
+  render(game = new TicTacToe(this));
   //game.state = '002011000'.split('');
   let bcs = game.baseCaseData.stateToBaseMap['002011000'];//210010000
-  console.log(bcs.caseArray[0]+' == '+game.baseCaseData.baseCases[27]+' -> '+strategies[1].genes[27]);
-  console.log(strategies[0].testedStates.length+' tested states [X]');
-  console.log(strategies[1].testedStates.length+' tested states [O]');
-  if (Math.random() < -1) {
-    loadAI(strategies[0], 'X');
-  }
-  else {
-    loadAI(strategies[1], 'O');
-  }
+  console.log(bcs.caseArray[0] + ' == ' + game.baseCaseData.baseCases[27] + ' -> ' + strategies[1].genes[27]);
+  console.log(strategies[0].testedStates.length + ' tested states [X]');
+  console.log(strategies[1].testedStates.length + ' tested states [O]');
+  loadAI(strategies[Math.random() < .5 ? 0 : 1]);
 }
 
-function loadAI(strategy, mark) {
+function loadAI(strategy) {
   this.ai = strategy;
-  this.ai.mark = mark;
-  if (this.ai.mark === 'X') {
-    game.update(strategy.genes[0]);
-    render(game);
-  }
+  console.log('LOADED', this.ai.mark);
+  if (this.ai.mark === 'X') game.update(this.ai.genes[0]);
+  locked = false;
+  render(game);
 }
 
 function mouseReleased() {
@@ -41,7 +36,7 @@ function mouseReleased() {
     }
     if (this.ai && !locked) {
       locked = true;
-      setTimeout(nextMove, 500);
+      timer = setTimeout(nextMove, 500);
     }
   }
 }
@@ -63,13 +58,13 @@ function nextMove() {
 
   if (onBaseCase) {
     next = baseCaseMove;
-    console.log(baseCase + '->' +next+'/'+next);
+    console.log(baseCase + '->' + next + '/' + next);
   }
   else {
     // make move on base-case state
     let baseCaseArr = baseCase.split('');
     if (baseCaseArr[baseCaseMove] !== '0') {
-      throw Error('Illegal move to filled space: '+ baseCaseArr[baseCaseMove]);
+      throw Error('Illegal move to filled space: ' + baseCaseArr[baseCaseMove]);
     }
 
     baseCaseArr[baseCaseMove] = (this.ai.mark === 'X' ? '1' : '2');
@@ -78,10 +73,10 @@ function nextMove() {
 
     let diffIdx = differingIndexes(state, nextRealState);
     if (diffIdx.length !== 1) {
-      throw Error('invalid state: '+ state + ' !=(-1) ' + nextRealState);
+      throw Error('invalid state: ' + state + ' !=(-1) ' + nextRealState);
     }
     next = diffIdx[0];
-    console.log(baseCase + '->' +baseCaseMove+'/'+next);
+    console.log(baseCase + '->' + baseCaseMove + '/' + next);
   }
   if (typeof next === 'undefined') {
     throw Error('no next for: ' + state + ' base=' + baseCase);

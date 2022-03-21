@@ -20,7 +20,7 @@ class TicTacToe {
   }
   reset() {
     this.state = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-    this._turn = 1; // 1 (X) or 2 (O)
+    this._turn = 1; // (X)
     this._winner = 0;
     return this;
   }

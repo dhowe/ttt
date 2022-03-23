@@ -5,30 +5,15 @@ require('@tensorflow/tfjs-node');
 
 (async function main() {
   let model = getModel();
-
-  // let history = simulateGame();
-  // let board = movesToBoard(history.slice(0,4));
-  // let prediction = model.predict(tf.tensor(board,[1,9]));
-  // console.log(prediction.dataSync());
-  // return;
-
   let games = simulateGames(1000);
   gameStats(games);
   let [XTrain, XTest, yTrain, yTest] = gamesToWinLossData(games);
-  // XTrain.forEach((x, i) => console.log(stringify(x) + '\n w='
-  //   + Array.from(yTrain[i].dataSync()).join('') + '\n'));
   await model.fit(tf.stack(XTrain), tf.stack(yTrain), {
     validationData: { XTest, yTest },
-    epochs: 10, //100
-    batchSize: 1000//100
+    epochs: 100,
+    batchSize: 100
   });
-  //model.predict(tf.tensor());
-  // let history = simulateGame();
-  // console.log(history);
-  // let board = movesToBoard(history.slice(0,4));
-
-  console.log('done fitting');// model.predict(tf.stack(initBoard())));
-  let games2 = simulateGames(3, model); // player1
+  let games2 = simulateGames(1000, model);
   gameStats(games2);
 })();
 
@@ -39,7 +24,7 @@ function bestMove(board, model, player, rnd = 0) {
   moves.forEach(move => {
     let future = board.slice();
     future[move] = player;
-    let prediction = model.predict(tf.tensor(future,[1,9])).dataSync();
+    let prediction = model.predict(tf.tensor(future, [1, 9])).dataSync();
     let winPrediction, lossPrediction;
     if (player == 1) {
       winPrediction = prediction[1];
@@ -57,50 +42,17 @@ function bestMove(board, model, player, rnd = 0) {
       scores.push(drawPrediction - lossPrediction);
     }
   });
-  //console.log(scores);
-  
+
   //Choose the best move with a random factor
-  let bestMoves = scores.sort().reverse();
-  //console.log('bestMoves'+for);
+  let bestMoves = argsort(scores).reverse();
   for (let i = 0; i < bestMoves.length; i++) {
-    if (rand() * rnd < 0.5) {
-      return moves[bestMoves[i]];
-    }    
+    if (rand() * rnd < 0.5) return moves[bestMoves[i]];
   }
   return moves[randi(moves.length)];
 }
 
-/*# Get best next move for the given player at the given board position
-def bestMove(board, model, player, rnd=0):
-    scores = []
-    moves = getMoves(board)
-    
-    # Make predictions for each possible move
-    for i in range(len(moves)):
-        future = np.array(board)
-        future[moves[i][0]][moves[i][1]] = player
-        prediction = model.predict(future.reshape((-1, 9)))[0]
-        if player == 1:
-            winPrediction = prediction[1]
-            lossPrediction = prediction[2]
-        else:
-            winPrediction = prediction[2]
-            lossPrediction = prediction[1]
-        drawPrediction = prediction[0]
-        if winPrediction - lossPrediction > 0:
-            scores.append(winPrediction - lossPrediction)
-        else:
-            scores.append(drawPrediction - lossPrediction)
-
-    # Choose the best move with a random factor
-    bestMoves = np.flip(np.argsort(scores))
-    for i in range(len(bestMoves)):
-        if random.random() * rnd < 0.5:
-            return moves[bestMoves[i]]
-
-    # Choose a move completely at random
-    return moves[random.randint(0, len(moves) - 1)]
-}*/
+// np.argsort, sort array and return indices
+let argsort = a => a.map(d).sort().map(u); d = (v, i) => [v, i]; u = i => i[1];
 
 function getModel() {
   let model = tf.sequential();
@@ -139,9 +91,6 @@ function gamesToWinLossData(games) {
   ];
 }
 
-// let games = simulateGames(10000);
-// gameStats(games);
-// gameStats(games, 2);
 
 function initBoard() {
   return [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -193,10 +142,7 @@ function getWinner(board) {
 }
 
 function printBoard(board) {
-  let disp = board.map(s => s ? (s === 1 ? 'X' : 'O') : '-');
-  console.log(disp.slice(0, 3).join(' '));
-  console.log(disp.slice(3, 6).join(' '));
-  console.log(disp.slice(6, 9).join(' '));
+  console.log(stringify(board));
 }
 
 function stringify(board) {
@@ -222,6 +168,7 @@ function simulateGame(p1, p2, rnd = 0, opts = {}) {
     let move = -1;
     if (p1 && player === 1) {
       move = bestMove(board, p1, player, rnd);
+      //console.log('model',board.join(''),' picks '+move);
     }
     else if (p2 && player === 2) {
       move = bestMove(board, p2, player, rnd);
@@ -261,67 +208,14 @@ function gameStats(games, player = 1) {
   });
   let num = games.length;
   console.log(`Results for player ${player}:`);
-  console.log(`  Wins: ${stats.win} ${toPer(stats.win / num)}%`);
-  console.log(`  Loss: ${stats.loss} ${toPer(stats.loss / num)}%`);
-  console.log(`  Draw: ${stats.draw} ${toPer(stats.draw / num)}%`);
+  console.log(`  Wins: ${stats.win} ${toPercent(stats.win / num)}%`);
+  console.log(`  Loss: ${stats.loss} ${toPercent(stats.loss / num)}%`);
+  console.log(`  Draw: ${stats.draw} ${toPercent(stats.draw / num)}%`);
 }
 
-function toPer(num) {
+function toPercent(num) {
   return (num * 100).toFixed(1);
 }
-
-
-/*
-def gameStats(games, player=1):
-    stats = {"win": 0, "loss": 0, "draw": 0}
-    for game in games:
-        result = getWinner(movesToBoard(game))
-        if result == -1:
-            continue
-        elif result == player:
-            stats.win += 1
-        elif result == 0:
-            stats.draw += 1
-        else:
-            stats.loss += 1
-    
-    winPct = stats.win / len(games) * 100
-    lossPct = stats.loss / len(games) * 100
-    drawPct = stats.draw / len(games) * 100
- 
-    print("Results for player %d:" % (player))
-    print("Wins: %d (%.1f%%)" % (stats.win, winPct))
-    print("Loss: %d (%.1f%%)" % (stats.loss, lossPct))
-    print("Draw: %d (%.1f%%)" % (stats.draw, drawPct))
- 
-def simulateGame(p1=None, p2=None, rnd=0):
-    history = []
-    board = initBoard()
-    playerToMove = 1
-    
-    while getWinner(board) == -1:
-        
-        # Chose a move (random or use a player model if provided)
-        move = None
-        if playerToMove == 1 and p1 != None:
-            move = bestMove(board, p1, playerToMove, rnd)
-        elif playerToMove == 2 and p2 != None:
-            move = bestMove(board, p2, playerToMove, rnd)
-        else:
-            moves = getMoves(board)
-            move = moves[random.randint(0, len(moves) - 1)]
-        
-        # Make the move
-        board[move[0]][move[1]] = playerToMove
-        
-        # Add the move to the history
-        history.append((playerToMove, move))
-        
-        # Switch the active player
-        playerToMove = 1 if playerToMove == 2 else 2
-        
-    return history
-    */
 
 function randi() {
   return Math.floor(rand(...arguments));

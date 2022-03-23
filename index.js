@@ -7,38 +7,6 @@ let pCrossover = 0.15;
 let maxGenerations = 1000;
 let idgen = 0, totalGames = 0;
 
-(function test() {
-  let gen = 0, game = new TicTacToe();
-  let population = initPop(game); // X,O
-  let bcs = game.baseCaseData.baseCases;
-  let validForO = [], validForX = [];
-  for (let i = 0; i < bcs.length; i++) {
-    let numX = bcs[i].split('').filter(t => t === '1').length;
-    let numO = bcs[i].split('').filter(t => t === '2').length;
-    if (numX - numO === 1) validForO.push(bcs[i]);
-    if (numX - numO === 0) validForX.push(bcs[i]);
-  }
-  console.log(validForO.length, validForX.length);
-  return;
-
-  assessFitness(population, game, gen);
-  let tests = population.O[0].testedStates;
-  let baseCases = {};
-  for (let i = 0; i < tests.length; i++) {
-    let numX = tests[i].split('').filter(t => t === '1').length;
-    let numO = tests[i].split('').filter(t => t === '2').length;
-    if (numX === 2 && numO === 1) {
-      console.log(tests[i]);
-    }
-    let bc = game.baseCaseData.stateToBaseMap[tests[i]].caseArray[0];
-    //  console.log(tests[i],bc);
-    if (!baseCases[bc]) baseCases[bc] = [];
-    baseCases[bc].push(tests[i]);
-  }
-  console.log(Object.keys(baseCases).length + '/' + 765);
-  //logResult(population, gen);
-});
-
 (function main() {
   let gen = 0, game = new TicTacToe();
   let population = initPop(game); // X,O

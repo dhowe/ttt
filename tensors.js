@@ -3,19 +3,104 @@
 const tf = require('@tensorflow/tfjs');
 require('@tensorflow/tfjs-node');
 
-let model = getModel();
-let games = simulateGames(1000);
-gameStats(games);
-let [XTrain, XTest, yTrain, yTest] = gamesToWinLossData(games);
-// XTrain.forEach((x, i) => console.log(stringify(x) + '\n w='
-//   + Array.from(yTrain[i].dataSync()).join('') + '\n'));
-let history = model.fit(XTrain, yTrain, {
-  validationData: { XTest, yTest },
-  epochs: 100,
-  batchSize: 100
-});
-let games2 = simulateGames(1000, model); // player1
-gameStats(games2);
+(async function main() {
+  let model = getModel();
+
+  // let history = simulateGame();
+  // let board = movesToBoard(history.slice(0,4));
+  // let prediction = model.predict(tf.tensor(board,[1,9]));
+  // console.log(prediction.dataSync());
+  // return;
+
+  let games = simulateGames(1000);
+  gameStats(games);
+  let [XTrain, XTest, yTrain, yTest] = gamesToWinLossData(games);
+  // XTrain.forEach((x, i) => console.log(stringify(x) + '\n w='
+  //   + Array.from(yTrain[i].dataSync()).join('') + '\n'));
+  await model.fit(tf.stack(XTrain), tf.stack(yTrain), {
+    validationData: { XTest, yTest },
+    epochs: 10, //100
+    batchSize: 1000//100
+  });
+  //model.predict(tf.tensor());
+  // let history = simulateGame();
+  // console.log(history);
+  // let board = movesToBoard(history.slice(0,4));
+
+  console.log('done fitting');// model.predict(tf.stack(initBoard())));
+  let games2 = simulateGames(3, model); // player1
+  gameStats(games2);
+})();
+
+
+function bestMove(board, model, player, rnd = 0) {
+  let scores = [];
+  let moves = getMoves(board);
+  moves.forEach(move => {
+    let future = board.slice();
+    future[move] = player;
+    let prediction = model.predict(tf.tensor(future,[1,9])).dataSync();
+    let winPrediction, lossPrediction;
+    if (player == 1) {
+      winPrediction = prediction[1];
+      lossPrediction = prediction[2];
+    }
+    else {
+      winPrediction = prediction[2];
+      lossPrediction = prediction[1];
+    }
+    let drawPrediction = prediction[0];
+    if (winPrediction - lossPrediction > 0) {
+      scores.push(winPrediction - lossPrediction)
+    }
+    else {
+      scores.push(drawPrediction - lossPrediction);
+    }
+  });
+  //console.log(scores);
+  
+  //Choose the best move with a random factor
+  let bestMoves = scores.sort().reverse();
+  //console.log('bestMoves'+for);
+  for (let i = 0; i < bestMoves.length; i++) {
+    if (rand() * rnd < 0.5) {
+      return moves[bestMoves[i]];
+    }    
+  }
+  return moves[randi(moves.length)];
+}
+
+/*# Get best next move for the given player at the given board position
+def bestMove(board, model, player, rnd=0):
+    scores = []
+    moves = getMoves(board)
+    
+    # Make predictions for each possible move
+    for i in range(len(moves)):
+        future = np.array(board)
+        future[moves[i][0]][moves[i][1]] = player
+        prediction = model.predict(future.reshape((-1, 9)))[0]
+        if player == 1:
+            winPrediction = prediction[1]
+            lossPrediction = prediction[2]
+        else:
+            winPrediction = prediction[2]
+            lossPrediction = prediction[1]
+        drawPrediction = prediction[0]
+        if winPrediction - lossPrediction > 0:
+            scores.append(winPrediction - lossPrediction)
+        else:
+            scores.append(drawPrediction - lossPrediction)
+
+    # Choose the best move with a random factor
+    bestMoves = np.flip(np.argsort(scores))
+    for i in range(len(bestMoves)):
+        if random.random() * rnd < 0.5:
+            return moves[bestMoves[i]]
+
+    # Choose a move completely at random
+    return moves[random.randint(0, len(moves) - 1)]
+}*/
 
 function getModel() {
   let model = tf.sequential();
@@ -41,7 +126,10 @@ function gamesToWinLossData(games) {
       y.push(winner);
     }
   });
+
+  X = X.map(e => tf.tensor(e));
   y = y.map(e => tf.oneHot(e, 3));
+
   let trainNum = Math.floor(X.length * 0.8);
   return [
     X.slice(0, trainNum),
@@ -139,7 +227,7 @@ function simulateGame(p1, p2, rnd = 0, opts = {}) {
       move = bestMove(board, p2, player, rnd);
     }
     else {
-      moves = getMoves(board);
+      let moves = getMoves(board);
       move = moves[randi(moves.length)];
     }
     board[move] = player;
